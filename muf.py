@@ -275,6 +275,99 @@ def fetch_pota_spots():
     return spots
 
 
+# SOTA spots carry no coordinates (unlike POTA), but each summit's association
+# does - the associations API gives every association's bounding box. So we
+# reuse the *exact* same Europe box as POTA: look up the spot's association,
+# take its centre, and apply EU_LAT_RANGE/EU_LON_RANGE. This keeps the SOTA and
+# POTA "is this in Europe" test identical, and sources it from SOTA's own
+# authoritative association list (https://www.sotadata.org.uk/en/summits)
+# rather than a hand-maintained code set.
+SOTA_ASSOCIATIONS_URL = "https://api-db2.sota.org.uk/api/associations"
+# Generous count: we prune to European HF spots from the last POTA_MAX_AGE
+# minutes, which is a small fraction of the raw feed. Newest-first ordering
+# from the API lets the dedup below keep the most recent of repeated spots.
+SOTA_SPOTS_URL = "https://api2.sota.org.uk/api/spots/100/all"
+
+
+def fetch_sota_association_centers():
+    """Map each SOTA association code to its bounding-box centre (lat, lon)."""
+    req = urllib.request.Request(SOTA_ASSOCIATIONS_URL, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req) as response:
+        raw = json.loads(response.read().decode("utf-8"))
+    centers = {}
+    for a in raw:
+        code = a.get("associationCode")
+        try:
+            lat = (float(a["minLat"]) + float(a["maxLat"])) / 2
+            lon = (float(a["minLong"]) + float(a["maxLong"])) / 2
+        except (KeyError, TypeError, ValueError):
+            continue
+        if code:
+            centers[code] = (lat, lon)
+    return centers
+
+
+def fetch_sota_spots():
+    centers = fetch_sota_association_centers()
+
+    req = urllib.request.Request(SOTA_SPOTS_URL, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req) as response:
+        raw = json.loads(response.read().decode("utf-8"))
+
+    spots = []
+    seen = set()
+    for row in raw:
+        assoc = row.get("associationCode")
+        center = centers.get(assoc)
+        if center is None:
+            continue
+        lat, lon = center
+        if not (EU_LAT_RANGE[0] <= lat <= EU_LAT_RANGE[1] and EU_LON_RANGE[0] <= lon <= EU_LON_RANGE[1]):
+            continue
+        try:
+            # SOTA reports frequency in MHz (e.g. "14.062"); POTA uses kHz.
+            freq_khz = float(row["frequency"]) * 1000.0
+            spot_time = datetime.strptime(row["timeStamp"], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        if now - spot_time > POTA_MAX_AGE:
+            continue
+        band = khz_to_band(freq_khz)
+        if band is None:
+            continue
+
+        reference = f"{assoc}/{row.get('summitCode')}"
+        activator = row.get("activatorCallsign")
+        # The RBNHole auto-spotter re-posts near-identical rows every minute;
+        # keep only the most recent per (activator, summit, band) so a single
+        # automated activation doesn't flood the list.
+        dedup_key = (activator, reference, band)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        # summitDetails looks like "Turnić, 484m, 1 points"; the leading segment
+        # is the human-readable summit name.
+        details = row.get("summitDetails") or ""
+        summit_name = details.split(",")[0].strip()
+
+        spots.append(
+            {
+                "activator": activator,
+                "reference": reference,
+                "summitName": summit_name,
+                "summitDetails": details,
+                "band": band,
+                "mode": row.get("mode") or "",
+                "frequencyKHz": freq_khz,
+                "spotTime": spot_time.strftime(ISO_FORM),
+            }
+        )
+    spots.sort(key=lambda s: s["spotTime"], reverse=True)
+    return spots
+
+
 def merge_and_prune(existing_records, fresh_records):
     """Dedup by timestamp, drop anything older than the 24h cutoff, sort by time."""
     by_time = {r["time"]: r for r in existing_records}
@@ -352,7 +445,7 @@ EXTRA_OUTPUT_PATHS = [
 ]
 
 
-def render_html(store, stations, generated_at, pota_spots, ticker_stations):
+def render_html(store, stations, generated_at, pota_spots, sota_spots, ticker_stations):
     payload = {
         "generatedAt": generated_at.strftime(ISO_FORM),
         "version": VERSION,
@@ -363,6 +456,7 @@ def render_html(store, stations, generated_at, pota_spots, ticker_stations):
         ],
         "indices": store.get("_indices", {"kindex": [], "sfi": []}),
         "potaSpots": pota_spots,
+        "sotaSpots": sota_spots,
         "tickerStations": [
             {"code": code, "name": name, "country": TICKER_COUNTRY.get(code), **store["_ticker"][code]}
             for code, name in ticker_stations.items()
@@ -438,6 +532,13 @@ except urllib.error.URLError as e:
     print(f"Failed to fetch POTA spots: {e}")
     pota_spots = []
 
+print("Fetching SOTA activator spots (Europe, HF, last 15min)...")
+try:
+    sota_spots = fetch_sota_spots()
+except urllib.error.URLError as e:
+    print(f"Failed to fetch SOTA spots: {e}")
+    sota_spots = []
+
 ticker = store.get("_ticker", {})
 for code, name in TICKER_STATIONS.items():
     print(f"Fetching ticker value for {name} ({code})...")
@@ -453,7 +554,7 @@ for code, name in TICKER_STATIONS.items():
 store["_ticker"] = ticker
 
 save_store(store)
-html_path = render_html(store, stations, now, pota_spots, TICKER_STATIONS)
+html_path = render_html(store, stations, now, pota_spots, sota_spots, TICKER_STATIONS)
 summary_path = render_summary(store, stations, now)
 print(f"Dashboard written to {html_path}")
 print(f"Summary written to {summary_path}")
