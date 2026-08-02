@@ -878,7 +878,13 @@ const POTA_CAP = 7;
 // Empty set = no filter active (show everything) for that group; a non-empty
 // set narrows the list to only the selected values (OR within a group, AND
 // across groups).
+// Local preference: start narrowed to SOTA, since POTA spots far outnumber
+// SOTA ones and would otherwise fill the capped short list on their own.
+// Guarded on SOTA actually being present - renderPotaFilters only draws chips
+// for networks that have spots, so preselecting SOTA during a SOTA-less spell
+// would leave an empty list with no chip to click to get back out of it.
 const potaSelectedNetworks = new Set();
+if (activatorSpots.some(s => s.network === 'SOTA')) potaSelectedNetworks.add('SOTA');
 const potaSelectedModes = new Set();
 const potaSelectedBands = new Set();
 const potaSelectedEntities = new Set();
