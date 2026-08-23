@@ -4,7 +4,7 @@
 
 > A self-hosted HF propagation dashboard for mid-Europe hams — MUF(D), foF2 and Sporadic-E from ten European ionosondes, full NOAA space weather (SFI, Kp, X-ray, solar wind), and live POTA activator spots, all cross-referenced into one glance-and-go page.
 
-Every 15 minutes, a small Python script pulls ionosonde readings for Dourbes (Belgium) and Juliusruh (Germany) plus a ticker of 8 more European stations, NOAA's solar flux, K-index, GOES X-ray flux and ACE solar wind speed, and live POTA spots across Europe — then renders a dependency-free HTML dashboard (no build step, no framework, no external JS at runtime) that answers one question: **is HF worth it right now, and where?**
+Every 15 minutes, a small Python script pulls ionosonde readings from the two European GIRO stations nearest your configured locator (defaults to Frankfurt am Main) plus a ticker of 8 more, NOAA's solar flux, K-index, GOES X-ray flux and ACE solar wind speed, and live POTA spots across Europe — then renders a dependency-free HTML dashboard (no build step, no framework, no external JS at runtime) that answers one question: **is HF worth it right now, and where?**
 
 ---
 
@@ -47,6 +47,14 @@ python3 muf.py
 
 This fetches fresh data, writes `dashboard.html` (plus `muf.css`, `mufmuncher-icon.png`, and `muf_payload.json` next to it — see [How It Works](#how-it-works)), and (if you're running it in a real terminal) also prints an ASCII version of the charts straight to your console via [plotext](https://github.com/piccolomo/plotext).
 
+By default the hero stations are whichever two of the ten curated GIRO stations are nearest Frankfurt am Main. Set `MUF_HOME_LOCATOR` to your own Maidenhead grid square (4 or 6 characters) to pick the two nearest *you* instead:
+
+```bash
+MUF_HOME_LOCATOR=JO40jg python3 muf.py
+```
+
+All ten curated stations are in Europe, so a locator more than ~1500km from the nearest one still works (it just picks the least-far two), but a console warning plus a highlighted note in the dashboard's header and footer flag that the hero readings won't be locally representative.
+
 The page fetches its data payload at load time, so opening `dashboard.html` directly from disk (`file://`) won't work — `fetch()` is blocked cross-origin for local files in every major browser. Serve the directory instead:
 
 ```bash
@@ -75,13 +83,13 @@ The dashboard is a static snapshot regenerated on every run — schedule it with
 
 | Section | What it answers |
 |---|---|
-| **Hero row** | Current MUF(D) for each station + a green/yellow/gray chip per amateur band (20m–10m) estimating whether it's open right now, plus a square Space Weather glance tile (SFI/Kp/X-ray/wind, color-rated). All three tiles link down to their detail sections |
-| **European Ticker** | Current MUF(D) for 8 more GIRO ionosonde stations across Europe (Spain, UK, Italy ×2, Greece, Czechia, Hungary, Norway) as compact pill chips — coverage without the chart overhead |
+| **Hero row** | Current MUF(D) for each station + how far it is from your configured locator ("299km from you") + a green/yellow/gray chip per amateur band (20m–10m) estimating whether it's open right now, plus a square Space Weather glance tile (SFI/Kp/X-ray/wind, color-rated). All three tiles link down to their detail sections |
+| **European Ticker** | Current MUF(D) for 8 more GIRO ionosonde stations across Europe (Spain, UK, Italy ×2, Greece, Czechia, Hungary, Norway) as compact pill chips — coverage without the chart overhead; hover a chip for its distance from your locator |
 | **Global MUF Map** | One-click link out to [prop.kc2g.com](https://prop.kc2g.com)'s live, globally-interpolated MUF map |
 | **Activator Activity** | Live POTA *and* SOTA activator spots across Europe on HF bands, merged into one time-sorted list and band-colored using the *same* MUF-derived open/marginal/closed logic as the hero row. Click a network, mode (SSB/CW/Digimode), band, or country chip to filter (multi-select), list caps at 7 rows with a "Show all" expander |
 | **Ionosonde detail** | foF2, MUF(D) and foEs charts for both hero stations, last 24h, with hover tooltips and a per-station legend toggle |
 | **Space Weather** | SFI, Kp (+ G-scale), GOES X-ray flux (+ flare class and R-scale), ACE solar wind speed, and daily sunspot number (SSN) — each with its own tile, sparkline, and a color rating (good/marginal/critical) for HF conditions |
-| **Header** | Live UTC + local clock, a manual dark/light toggle (persisted across reloads), and the running version linked to source — which lights up with an "update available" badge when `muf.py` finds a newer GitHub release during its cron run |
+| **Header** | Live UTC + local clock, your active locator ("Your locator: JO40jg", or "Frankfurt am Main (JO40ic) · default" if unset — highlighted if it's outside the ten stations' coverage), a manual dark/light toggle (persisted across reloads), and the running version linked to source — which lights up with an "update available" badge when `muf.py` finds a newer GitHub release during its cron run |
 | **Home screen ready** | A reload button and a manual pull-to-refresh gesture, since iOS strips native pull-to-refresh once the page is added to the home screen as a standalone web app |
 
 ![MUF Muncher — MUF(D), foF2 and foEs charts with hover crosshair and legend toggle](MUF_Screener2.png)
@@ -109,7 +117,7 @@ GET https://lgdc.uml.edu/fastchar/getbest
 The block above is a readable illustration of the request, not something you can paste directly into a shell — the parentheses in `MUF(D)` and the space in the date are shell-special characters. To actually try it, let `curl --data-urlencode` handle the escaping instead of doing it by hand:
 
 ```bash
-curl -A "MufMuncher/1.3.0 (+https://github.com/mooxle/Muf_Muncher)" -G "https://lgdc.uml.edu/fastchar/getbest" \
+curl -A "MufMuncher/1.4.3 (+https://github.com/mooxle/Muf_Muncher)" -G "https://lgdc.uml.edu/fastchar/getbest" \
   --data-urlencode "ursiCode=DB049" \
   --data-urlencode "charName=foF2,MUF(D),foEs" \
   --data-urlencode "fromDate=2026/07/23 10:00:00" \
@@ -272,7 +280,7 @@ The dashboard itself (`dashboard_template.html`) is intentionally dependency-fre
 This was built for one specific use case — mid-Europe HF conditions — and several things are deliberately fixed rather than configurable yet:
 
 - **24h window, almost always.** `muf.py` requests the last 24 hours from GIRO and NOAA on every run, merges it with whatever's already in `muf_data.json`, and **permanently discards anything older than 24h** - with one exception: sunspot number (SSN) is a once-daily reading, so it's kept for 30 days instead (a 24h window would only ever hold a single point, no trend to show). There's no way to keep a longer history for the other metrics, or look further back, without changing the code.
-- **Two hardcoded hero stations, plus 8 hardcoded ticker stations.** Dourbes (`DB049`) and Juliusruh (`JR055`) are set directly in `muf.py`'s `stations` dict; the ticker's 8 additional European stations live in `TICKER_STATIONS`/`TICKER_COUNTRY`. Adding or swapping a station means editing the script, not a config file.
+- **Hero stations are the two nearest to a configurable home locator, out of ten curated European GIRO stations — not any ten, just these ten.** Set `MUF_HOME_LOCATOR` to your Maidenhead grid square (4 or 6 characters, e.g. `JO40jg`); `muf.py` picks the nearest two by great-circle distance for the hero tiles (full 24h history/charts) and puts the other eight in the ticker (latest MUF(D) only). Defaults to Frankfurt am Main if unset, which resolves to Dourbes + Pruhonice — not Dourbes + Juliusruh, since Pruhonice is genuinely the closer of the two. Adding an eleventh station to the pool still means editing `STATION_INFO` in `muf.py`, not a config file.
 - **POTA and SOTA are hardcoded to Europe + HF only, on different recency windows.** POTA uses a lat/lon bounding box (`lat 34–72, lon -25–40`) and a 15-minute cutoff; SOTA uses a hardcoded list of European `associationCode`s (`SOTA_EU_ASSOCIATIONS`) and a 60-minute cutoff, since summit spots stay "current" longer. Both share the same HF-only band filter (excluding 6m/VHF/UHF). None of this is a parameter yet.
 - **Band-opening thresholds are fixed** to five bands (20m/17m/15m/12m/10m) with hand-picked representative frequencies — see `BANDS` in the template.
 
@@ -288,7 +296,7 @@ The included `Dockerfile` + `docker-compose.yml` run `muf.py` on a cron schedule
 docker compose up -d --build
 ```
 
-- `entrypoint.sh` runs `muf.py` once immediately (so the dashboard isn't empty on first start), then starts cron (`muf-cron`, every 15 min) and the file server in one process.
+- `entrypoint.sh` runs `muf.py` once immediately (so the dashboard isn't empty on first start), then starts cron (`muf-cron`, every 15 min) and the file server in one process. Set `MUF_HOME_LOCATOR` in `docker-compose.yml`'s `environment:` to pick hero stations near you instead of the Frankfurt am Main default — cron doesn't inherit the container's environment, so `entrypoint.sh` regenerates `/etc/cron.d/muf-cron` with it baked in at container start, not just the initial fetch.
 - Output goes to `/data` (a named volume), which the file server serves directly — `dashboard.html`, `index.html`, `muf.css`, `mufmuncher-icon.png`, `mufmuncher-llama.png`, `mufmuncher-wave.png`, `muf_payload.json`, `muf_data.json`, and `summary.json` all end up there.
 - If you put a reverse proxy in front (nginx, Nginx Proxy Manager, Caddy, ...) for TLS/auth, make sure whatever proxies `/your-path/` also forwards the exact sub-paths unstripped or stripped consistently — `muf.py` writes duplicate copies to a `muf/` subdirectory specifically to survive either proxy behavior without guessing wrong.
 
@@ -367,6 +375,10 @@ Every notable change is logged in [CHANGELOG.md](CHANGELOG.md).
 Ullrich "Uz" von Bassewitz, [DF5WC](https://www.qrz.com/db/DF5WC), pointed out the shebang line and suggested splitting the static assets from the data payload for proper browser caching (see [How It Works](#how-it-works)) — both are in here because of that.
 
 Ivar Nygård, [LB8VA](https://www.qrz.com/db/LB8VA), reported that `muf.py` crashed immediately on Windows (`time.tzset()` isn't available there) — fixed in v1.2.1.
+
+Andreas, [DN9GU](https://www.qrz.com/db/DN9GU), reported that the ionosonde detail charts' x-axis could show a misleading hour at the right edge — fixed in v1.4.2.
+
+[Sn0rrii](https://github.com/netscout2001), in [this project's first GitHub issue](https://github.com/mooxle/Muf_Muncher/issues/1), reported that `docker-compose.yml` hardcoded `MUF_HOME_LOCATOR` as a literal empty value instead of `${VAR}` interpolation, silently ignoring it when set via a `.env` file or a stack manager's environment panel — fixed in v1.4.3.
 
 ---
 

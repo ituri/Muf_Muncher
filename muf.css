@@ -123,7 +123,11 @@
        and defeating its margin-left:auto right-alignment. A fixed
        flex-direction:column here is immune to that, on any width class. */
     .hdr { flex-wrap: nowrap; flex-direction: column; align-items: stretch; }
-    .hdr-right { align-self: flex-end; margin-left: 0; }
+    /* max-width caps this shrink-to-fit box at the header's own width - without
+       it, a long unbroken line (e.g. the "Your locator: ..." note) sets the
+       box's preferred width past the viewport instead of wrapping inside it. */
+    .hdr-right { align-self: flex-end; margin-left: 0; max-width: 100%; }
+    .hdr-locator { max-width: 100%; }
   }
 
   /* Stat strip: the "is this thing alive, and covering what" facts, spread
@@ -157,6 +161,8 @@
   .clock-date { font-size: 11px; font-weight: 500; color: var(--text-muted); letter-spacing: .03em; margin-top: 1px; font-family: var(--font-sans); }
   .clock-local { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-muted); margin-top: 3px; }
   .clock-tz { font-size: 0.68em; font-weight: 500; color: var(--text-muted); font-family: var(--font-sans); }
+  .hdr-locator { font-size: 11px; color: var(--text-muted); margin-top: 3px; text-align: right; }
+  .hdr-locator.is-far { color: var(--warning); font-weight: 600; }
   .clock-colon { animation: clock-blink 1s step-start infinite; }
   @keyframes clock-blink { 50% { opacity: .3; } }
   .data-updated { display: flex; align-items: center; gap: 5px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
@@ -202,6 +208,7 @@
   .hero-card { flex: 1 1 230px; padding: 12px 16px; }
   .hero-card.dim { opacity: .35; }
   .hero-name { font-family: var(--font-mono); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--hero-color, var(--text-primary)); margin-bottom: 2px; }
+  .hero-distance { font-family: var(--font-sans); font-size: 10.5px; font-weight: 500; text-transform: none; letter-spacing: normal; color: var(--text-muted); margin-left: 7px; }
   .hero-value-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
   .hero-value { font-family: var(--font-mono); font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .hero-unit { font-size: 12px; color: var(--text-muted); margin-left: 3px; font-weight: 500; }
