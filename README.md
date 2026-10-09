@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="mufmuncher-header-hero.png" width="380" alt="MUF Muncher — Is HF worth it right now, and where?">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="mufmuncher-banner-dark.png">
+    <img src="mufmuncher-banner.png" width="380" alt="MUF Muncher — Is HF worth it right now, and where?">
+  </picture>
 </p>
 
 > A self-hosted HF propagation dashboard for mid-Europe hams — MUF(D), foF2 and Sporadic-E from ten European ionosondes, full NOAA space weather (SFI, Kp, X-ray, solar wind), and live POTA activator spots, all cross-referenced into one glance-and-go page.
@@ -83,18 +86,23 @@ The dashboard is a static snapshot regenerated on every run — schedule it with
 
 | Section | What it answers |
 |---|---|
-| **Hero row** | Current MUF(D) for each station + how far it is from your configured locator ("299km from you") + a green/yellow/gray chip per amateur band (20m–10m) estimating whether it's open right now, plus a square Space Weather glance tile (SFI/Kp/X-ray/wind, color-rated). All three tiles link down to their detail sections |
+| **Hero row** | Current MUF(D) for each station + how far it is from your configured locator ("299km from you") + a green/yellow/gray chip per amateur band (20m–10m) estimating whether it's open right now, plus a Space Weather glance tile (SFI/Kp/X-ray/wind, color-rated) and a same-size Satellite Passes glance tile (next ISS/SO-50 pass countdown + max elevation, live-updating). All four tiles link down to their detail sections |
+| **Quick nav** | A minimal row of jump links (Activator Activity / Ionosonde Detail / Space Weather / Satellite Passes) between the freshness line and the hero row, for getting to a section without scrolling past everything above it |
 | **European Ticker** | Current MUF(D) for 8 more GIRO ionosonde stations across Europe (Spain, UK, Italy ×2, Greece, Czechia, Hungary, Norway) as compact pill chips — coverage without the chart overhead; hover a chip for its distance from your locator |
 | **Global MUF Map** | One-click link out to [prop.kc2g.com](https://prop.kc2g.com)'s live, globally-interpolated MUF map |
 | **Activator Activity** | Live POTA *and* SOTA activator spots across Europe on HF bands, merged into one time-sorted list and band-colored using the *same* MUF-derived open/marginal/closed logic as the hero row. Click a network, mode (SSB/CW/Digimode), band, or country chip to filter (multi-select), list caps at 7 rows with a "Show all" expander |
 | **Ionosonde detail** | foF2, MUF(D) and foEs charts for both hero stations, last 24h, with hover tooltips and a per-station legend toggle |
 | **Space Weather** | SFI, Kp (+ G-scale), GOES X-ray flux (+ flare class and R-scale), ACE solar wind speed, and daily sunspot number (SSN) — each with its own tile, sparkline, and a color rating (good/marginal/critical) for HF conditions |
 | **Header** | Live UTC + local clock, your active locator ("Your locator: JO40jg", or "Frankfurt am Main (JO40ic) · default" if unset — highlighted if it's outside the ten stations' coverage), a manual dark/light toggle (persisted across reloads), and the running version linked to source — which lights up with an "update available" badge when `muf.py` finds a newer GitHub release during its cron run |
+| **Data freshness** | Each major section has its own prominent "X Data updated" line (dot + timestamp), not just one page-wide stat: "GIRO Data updated" above the hero row, "POTA/SOTA Data updated" above the activator list, "Space Weather Data updated" above the indices. Each reflects that source's actual latest successful reading, not just when `muf.py` last ran — color and wording scale to its own update cadence (GIRO/POTA/NOAA ~15min, SOTA ~60min), calling out "likely a data issue upstream" once ~2 cycles are missed, and adding the date once the last reading isn't from today. Independent per section, so one source's outage doesn't make the others look broken too |
+| **Satellite Passes** | Next 3 overflights each of the ISS and SO-50 (the most commonly worked easy LEO satellites for portable ops) over your configured locator — AOS/max-elevation/LOS times and azimuths for antenna aiming, plus a green/amber/red signal-bar icon by max elevation as a rough go/skip guide (bar count doubles up with color, so it still reads for colorblind users). Elapsed passes drop off the list live, without waiting for a reload |
 | **Home screen ready** | A reload button and a manual pull-to-refresh gesture, since iOS strips native pull-to-refresh once the page is added to the home screen as a standalone web app |
 
 ![MUF Muncher — MUF(D), foF2 and foEs charts with hover crosshair and legend toggle](MUF_Screener2.png)
 
 ![MUF Muncher — Space Weather tiles (SFI, Kp, X-ray, solar wind) with color ratings and Kp history](MUF_Screener3.png)
+
+![MUF Muncher — Satellite Passes: next ISS & SO-50 overflights with AOS/max-elevation/LOS times, azimuths, and a go/skip dot by max elevation](MUF_Screener4.png)
 
 ---
 
@@ -117,7 +125,7 @@ GET https://lgdc.uml.edu/fastchar/getbest
 The block above is a readable illustration of the request, not something you can paste directly into a shell — the parentheses in `MUF(D)` and the space in the date are shell-special characters. To actually try it, let `curl --data-urlencode` handle the escaping instead of doing it by hand:
 
 ```bash
-curl -A "MufMuncher/1.4.3 (+https://github.com/mooxle/Muf_Muncher)" -G "https://lgdc.uml.edu/fastchar/getbest" \
+curl -A "MufMuncher/2.1.2 (+https://github.com/mooxle/Muf_Muncher)" -G "https://lgdc.uml.edu/fastchar/getbest" \
   --data-urlencode "ursiCode=DB049" \
   --data-urlencode "charName=foF2,MUF(D),foEs" \
   --data-urlencode "fromDate=2026/07/23 10:00:00" \
@@ -261,7 +269,7 @@ muf.py (runs every 15 min via cron)
   ├─ render_html()          → copies dashboard_template.html verbatim to dashboard.html
   │                           (+ index.html, muf/index.html), writes the merged JSON to
   │                           muf_payload.json, and copies muf.css + mufmuncher-icon.png +
-  │                           mufmuncher-llama.png + mufmuncher-wave.png alongside every one of them
+  │                           mufmuncher-banner.png + mufmuncher-banner-dark.png alongside every one of them
   └─ render_summary()       → a small flat summary.json (latest values only),
                               for external dashboards (e.g. gethomepage/homepage)
                               that can't index "the last item" of a variable-length array
@@ -269,7 +277,7 @@ muf.py (runs every 15 min via cron)
 
 The dashboard itself (`dashboard_template.html`) is intentionally dependency-free: no charting library, no npm, no build step. All the SVG line charts, the hover crosshair, the legend toggle, and the KPI tiles are vanilla JS drawing directly into `<svg>` elements.
 
-**Static vs. dynamic, and why they're split into separate files:** `muf.css`, `mufmuncher-icon.png`, `mufmuncher-llama.png` and `mufmuncher-wave.png` never change between runs, so they're real static files the browser caches normally across reloads - earlier versions inlined the icon directly into the HTML (base64-encoded, ~30KB, and ended up embedded three times over via a template placeholder, since it's referenced by the favicon, apple-touch-icon, and header logo - all from one page's markup, not even across reloads). The header logo is line art (a llama outline + a waveform divider) processed down to pure black strokes on a transparent background, so a single `filter: invert(1)` in dark mode is enough to make it read on both themes - no second asset needed. `muf_payload.json` *does* change every cron cycle, so it's still re-fetched every load, but keeping it as its own file (rather than inlined as `const DATA = {...}`) means a browser reload within the same 15-minute window can still get a `304 Not Modified` instead of re-transferring the full payload - and the reload button / pull-to-refresh gesture make that a common case. The one trade-off: the page now needs a `fetch()` at load time, so it must be served over `http(s)://`, not opened directly via `file://` (see [Quick Start](#quick-start) for the `MUF_INLINE_PAYLOAD=1` escape hatch if you want `file://` back).
+**Static vs. dynamic, and why they're split into separate files:** `muf.css`, `mufmuncher-icon.png`, `mufmuncher-banner.png` and `mufmuncher-banner-dark.png` never change between runs, so they're real static files the browser caches normally across reloads - earlier versions inlined the icon directly into the HTML (base64-encoded, ~30KB, and ended up embedded three times over via a template placeholder, since it's referenced by the favicon, apple-touch-icon, and header logo - all from one page's markup, not even across reloads). The header banner is a full-color illustration, not line art, so the old single-asset `filter: invert(1)` trick for dark mode (fine for pure black strokes on transparent) would have wrecked its gradient shading - it ships as two pre-rendered variants instead, swapped by CSS depending on theme, with only the banner's baked-in tagline text recolored between them. `muf_payload.json` *does* change every cron cycle, so it's still re-fetched every load, but keeping it as its own file (rather than inlined as `const DATA = {...}`) means a browser reload within the same 15-minute window can still get a `304 Not Modified` instead of re-transferring the full payload - and the reload button / pull-to-refresh gesture make that a common case. The one trade-off: the page now needs a `fetch()` at load time, so it must be served over `http(s)://`, not opened directly via `file://` (see [Quick Start](#quick-start) for the `MUF_INLINE_PAYLOAD=1` escape hatch if you want `file://` back).
 
 `muf_data.json` (the full 24h history) and `summary.json` (latest-values-only) are both written alongside the HTML, so you can point other tools at either depending on whether you need the history or just the current numbers.
 
@@ -284,7 +292,7 @@ This was built for one specific use case — mid-Europe HF conditions — and se
 - **POTA and SOTA are hardcoded to Europe + HF only, on different recency windows.** POTA uses a lat/lon bounding box (`lat 34–72, lon -25–40`) and a 15-minute cutoff; SOTA uses a hardcoded list of European `associationCode`s (`SOTA_EU_ASSOCIATIONS`) and a 60-minute cutoff, since summit spots stay "current" longer. Both share the same HF-only band filter (excluding 6m/VHF/UHF). None of this is a parameter yet.
 - **Band-opening thresholds are fixed** to five bands (20m/17m/15m/12m/10m) with hand-picked representative frequencies — see `BANDS` in the template.
 
-None of this is architecturally hard to fix — the obvious next step for a v2 would be pulling these into command-line flags or environment variables (station list, region bounding box, time windows, HF/VHF cutoff). It just hasn't been needed yet for a dashboard built around one specific pair of stations and one specific region.
+None of this is architecturally hard to fix — the obvious next step would be pulling these into command-line flags or environment variables (station list, region bounding box, time windows, HF/VHF cutoff). It just hasn't been needed yet for a dashboard built around one specific pair of stations and one specific region.
 
 ---
 
@@ -297,7 +305,7 @@ docker compose up -d --build
 ```
 
 - `entrypoint.sh` runs `muf.py` once immediately (so the dashboard isn't empty on first start), then starts cron (`muf-cron`, every 15 min) and the file server in one process. Set `MUF_HOME_LOCATOR` in `docker-compose.yml`'s `environment:` to pick hero stations near you instead of the Frankfurt am Main default — cron doesn't inherit the container's environment, so `entrypoint.sh` regenerates `/etc/cron.d/muf-cron` with it baked in at container start, not just the initial fetch.
-- Output goes to `/data` (a named volume), which the file server serves directly — `dashboard.html`, `index.html`, `muf.css`, `mufmuncher-icon.png`, `mufmuncher-llama.png`, `mufmuncher-wave.png`, `muf_payload.json`, `muf_data.json`, and `summary.json` all end up there.
+- Output goes to `/data` (a named volume), which the file server serves directly — `dashboard.html`, `index.html`, `muf.css`, `mufmuncher-icon.png`, `mufmuncher-banner.png`, `mufmuncher-banner-dark.png`, `muf_payload.json`, `muf_data.json`, and `summary.json` all end up there.
 - If you put a reverse proxy in front (nginx, Nginx Proxy Manager, Caddy, ...) for TLS/auth, make sure whatever proxies `/your-path/` also forwards the exact sub-paths unstripped or stripped consistently — `muf.py` writes duplicate copies to a `muf/` subdirectory specifically to survive either proxy behavior without guessing wrong.
 
 ---
@@ -311,6 +319,7 @@ docker compose up -d --build
 | [POTA (Parks on the Air)](https://parksontheair.com/) | Live activator spots | No formal API terms of service found; the public API is served with permissive CORS (`Access-Control-Allow-Origin: *`), suggesting open third-party use is intended, but this isn't a substitute for an actual published policy |
 | [SOTA (Summits on the Air)](https://www.sota.org.uk/) | Live activator spots, association list | No formal API terms of service found for `api-db2.sota.org.uk` specifically; sota.org.uk's general site terms apply to the website itself |
 | [prop.kc2g.com](https://prop.kc2g.com) (KC2G) | Linked out to, not embedded/scraped | Not redistributed by this project — see their site directly for terms |
+| [CelesTrak](https://celestrak.org/) | ISS and SO-50 TLE (orbital elements) for pass prediction | Public domain / freely redistributable per [CelesTrak's FAQ](https://celestrak.org/NORAD/documentation/gp-data-formats.php); attribution appreciated |
 
 ### Required attribution for GIRO/DIDBase data
 
@@ -384,4 +393,15 @@ Andreas, [DN9GU](https://www.qrz.com/db/DN9GU), reported that the ionosonde deta
 
 ## Transparency
 
-The idea and concept behind this tool were conceived by **Max Sammet (DA6MAX)**. The code was generated with the assistance of [Claude](https://www.anthropic.com/claude) by Anthropic. The header logo artwork (llama icon and waveform) was generated with [Google Gemini](https://gemini.google.com/).
+The idea and concept behind this tool were conceived by **Max Sammet (DA6MAX)**. The code was generated with the assistance of [Claude](https://www.anthropic.com/claude) by Anthropic. The header banner and app icon artwork (the illustrated llama) was generated with [Google Gemini](https://gemini.google.com/).
+
+
+## Docker ohne sudo (`maxsammet` in `docker`-Gruppe) — 16.08.2026
+
+Flottenweite Prüfung (`homelab-ansible/adhoc/docker_group_check.yml`)
+ergab: `maxsammet` war auf **keinem** der 13 damals bestehenden
+Docker-Hosts Mitglied der lokalen `docker`-Gruppe — jedes
+Docker-Kommando brauchte `sudo`. Nachgezogen (`usermod -aG docker
+maxsammet`), wirkt ab dem nächsten Login. `adhoc/lxc_create.yml`
+richtet das seither bei jedem neu erstellten Docker-Host automatisch
+mit ein.

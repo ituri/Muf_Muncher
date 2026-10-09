@@ -21,8 +21,9 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 import plotext as plt
+from skyfield.api import EarthSatellite, load, wgs84
 
-VERSION = "1.4.3"
+VERSION = "2.1.2"
 REPO_URL = "https://github.com/mooxle/Muf_Muncher"
 # Self-identifying User-Agent for every outbound fetch - lets GIRO/NOAA/POTA
 # see this is an automated client (and how to reach the maintainer) rather
@@ -172,6 +173,26 @@ TICKER_LOOKBACK = timedelta(hours=6)
 
 DATE_FORM = "d/m/Y H:M:S"
 
+# Satellite pass prediction (ISS + SO-50, the two most commonly worked easy
+# LEO birds for portable ops) - NORAD catalog numbers, used both to fetch
+# each satellite's TLE from Celestrak and to label the resulting passes.
+SATELLITES = [("ISS", 25544), ("SO-50", 27607)]
+SAT_PASS_COUNT = 3
+# LEO orbital periods are ~90-100min, so 72h comfortably covers 3 passes even
+# for a satellite that's only briefly/marginally visible from this locator.
+SAT_SEARCH_HOURS = 72
+# TLEs don't need the same 15min cadence as everything else - orbital drift
+# over a few hours is negligible for pass timing at the minute-level accuracy
+# shown here, so this stays cheap on Celestrak instead of hitting it every run.
+TLE_MAX_AGE = timedelta(hours=6)
+CELESTRAK_TLE_URL = "https://celestrak.org/NORAD/elements/gp.php?CATNR={}&FORMAT=TLE"
+# Skyfield's builtin timescale (bundled leap-second/delta-T data, no network
+# call) so pass prediction works offline just like everything else here bar
+# the actual TLE fetch - loaded once at import time since it's the same for
+# every satellite/run.
+SKY_TS = load.timescale(builtin=True)
+HOME_OBSERVER = wgs84.latlon(HOME_LATLON[0], HOME_LATLON[1])
+
 
 def parse_float_or_none(text):
     try:
@@ -180,6 +201,13 @@ def parse_float_or_none(text):
         return None
 
 
+# Every urlopen() call below sets timeout=15: without one, a source that
+# accepts the connection but never responds (rather than erroring outright)
+# blocks indefinitely - observed live 2026-09-12 when GIRO's backend went
+# down returning nothing for ~20s+ per station before an eventual 504,
+# stretching a normal ~15s run to 3+ minutes across all 10 stations. A
+# timeout still raises urllib.error.URLError, already handled at every call
+# site, so this only bounds the wait - it doesn't change what's caught.
 def fetch_station(station):
     query = urllib.parse.urlencode(
         {
@@ -194,7 +222,7 @@ def fetch_station(station):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
 
     records = []
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw_data = response.read().decode("utf-8")
 
     for line in raw_data.splitlines():
@@ -233,7 +261,7 @@ def fetch_ticker_value(station):
     )
     url = f"https://lgdc.uml.edu/fastchar/getbest?{query}"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw_data = response.read().decode("utf-8")
 
     latest = None
@@ -248,10 +276,69 @@ def fetch_ticker_value(station):
     return latest
 
 
+def fetch_tle(norad_id):
+    """Current TLE for one NORAD catalog number, Celestrak's 3-line format
+    (name, line 1, line 2)."""
+    url = CELESTRAK_TLE_URL.format(norad_id)
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=15) as response:
+        raw = response.read().decode("utf-8")
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    if len(lines) < 3:
+        raise ValueError(f"unexpected TLE response for NORAD {norad_id}: {raw!r}")
+    return lines[1], lines[2]
+
+
+def compute_passes(name, line1, line2, observer, start_dt, count=SAT_PASS_COUNT, search_hours=SAT_SEARCH_HOURS):
+    """Next `count` passes above the horizon (0 deg elevation - real horizon
+    obstructions are site-specific and left to the dashboard's own
+    disclaimer), each as AOS/max-elevation/LOS with time + azimuth. Only
+    complete rise-culminate-set triples count; a pass already underway at
+    start_dt, or one still rising when the search window ends, is dropped
+    rather than shown with a missing edge."""
+    sat = EarthSatellite(line1, line2, name, SKY_TS)
+    t0 = SKY_TS.from_datetime(start_dt)
+    t1 = SKY_TS.from_datetime(start_dt + timedelta(hours=search_hours))
+    times, events = sat.find_events(observer, t0, t1, altitude_degrees=0.0)
+
+    passes = []
+    current = {}
+    for ti, event in zip(times, events):
+        if event == 0:
+            current = {"rise": ti}
+        elif event == 1 and "rise" in current:
+            current["culminate"] = ti
+        elif event == 2 and "culminate" in current:
+            current["set"] = ti
+            passes.append(current)
+            current = {}
+            if len(passes) >= count:
+                break
+
+    result = []
+    for p in passes:
+        _, rise_az, _ = (sat - observer).at(p["rise"]).altaz()
+        max_alt, max_az, _ = (sat - observer).at(p["culminate"]).altaz()
+        _, set_az, _ = (sat - observer).at(p["set"]).altaz()
+        result.append(
+            {
+                "aos": p["rise"].utc_strftime(ISO_FORM),
+                "aosAz": round(rise_az.degrees, 1),
+                "maxElTime": p["culminate"].utc_strftime(ISO_FORM),
+                "maxEl": round(max_alt.degrees, 1),
+                "maxElAz": round(max_az.degrees, 1),
+                "los": p["set"].utc_strftime(ISO_FORM),
+                "losAz": round(set_az.degrees, 1),
+                "durationMin": round((p["set"].utc_datetime() - p["rise"].utc_datetime()).total_seconds() / 60),
+            }
+        )
+    return result
+
+
 def fetch_kindex():
     url = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = json.loads(response.read().decode("utf-8"))
     records = []
     for row in raw:
@@ -263,7 +350,7 @@ def fetch_kindex():
 def fetch_sfi():
     url = "https://services.swpc.noaa.gov/json/f107_cm_flux.json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = json.loads(response.read().decode("utf-8"))
     records = []
     for row in raw:
@@ -278,7 +365,7 @@ def fetch_xray():
     rating, both computed client-side from this raw series."""
     url = "https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = json.loads(response.read().decode("utf-8"))
     records = []
     for row in raw:
@@ -294,7 +381,7 @@ def fetch_solar_wind():
     sparkline, unlike the single-value real-time summary endpoint."""
     url = "https://services.swpc.noaa.gov/json/ace/swepam/ace_swepam_1h.json"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = json.loads(response.read().decode("utf-8"))
     records = []
     for row in raw:
@@ -319,7 +406,7 @@ def fetch_ssn():
     point (no trend to show in a sparkline)."""
     url = "https://services.swpc.noaa.gov/text/daily-solar-indices.txt"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = response.read().decode("utf-8")
 
     records = []
@@ -394,7 +481,7 @@ def khz_to_band(freq_khz):
 def fetch_pota_spots():
     url = "https://api.pota.app/spot/activator"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = json.loads(response.read().decode("utf-8"))
 
     spots = []
@@ -441,7 +528,7 @@ def fetch_latest_release_version():
         GITHUB_LATEST_RELEASE_URL,
         headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"},
     )
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = json.loads(response.read().decode("utf-8"))
     tag = raw.get("tag_name") or ""
     return tag.lstrip("vV") or None
@@ -450,7 +537,7 @@ def fetch_latest_release_version():
 def fetch_sota_spots():
     url = "https://api-db2.sota.org.uk/api/spots/-1/all"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req, timeout=15) as response:
         raw = json.loads(response.read().decode("utf-8"))
 
     spots = []
@@ -556,8 +643,8 @@ def render_summary(store, stations, generated_at, latest_version=None):
 
 HTML_TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "dashboard_template.html")
 ICON_PATH = os.path.join(SCRIPT_DIR, "mufmuncher-icon.png")
-LLAMA_PATH = os.path.join(SCRIPT_DIR, "mufmuncher-llama.png")
-WAVE_PATH = os.path.join(SCRIPT_DIR, "mufmuncher-wave.png")
+BANNER_PATH = os.path.join(SCRIPT_DIR, "mufmuncher-banner.png")
+BANNER_DARK_PATH = os.path.join(SCRIPT_DIR, "mufmuncher-banner-dark.png")
 CSS_PATH = os.path.join(SCRIPT_DIR, "muf.css")
 HTML_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "dashboard.html")
 PAYLOAD_FILENAME = "muf_payload.json"
@@ -597,6 +684,13 @@ def render_html(store, stations, generated_at, activator_spots, ticker_stations,
         ],
         "indices": store.get("_indices", {"kindex": [], "sfi": []}),
         "activatorSpots": activator_spots,
+        "potaFetchedAt": store.get("_meta", {}).get("potaFetchedAt"),
+        "sotaFetchedAt": store.get("_meta", {}).get("sotaFetchedAt"),
+        "kindexFetchedAt": store.get("_meta", {}).get("kindexFetchedAt"),
+        "sfiFetchedAt": store.get("_meta", {}).get("sfiFetchedAt"),
+        "xrayFetchedAt": store.get("_meta", {}).get("xrayFetchedAt"),
+        "solarWindFetchedAt": store.get("_meta", {}).get("solarWindFetchedAt"),
+        "satellitePasses": store.get("_satPasses", {}),
         "tickerStations": [
             {
                 "code": code,
@@ -621,7 +715,7 @@ def render_html(store, stations, generated_at, activator_spots, ticker_stations,
     # bump specifically, so a CSS/asset change (e.g. this one, discovered live
     # on muf.sammet.me) reaches already-visited browsers immediately instead
     # of up to 4h later, without giving up the caching benefit in between.
-    for asset in ("muf.css", "mufmuncher-icon.png", "mufmuncher-llama.png", "mufmuncher-wave.png"):
+    for asset in ("muf.css", "mufmuncher-icon.png", "mufmuncher-banner.png", "mufmuncher-banner-dark.png"):
         html = html.replace(f'"{asset}"', f'"{asset}?v={VERSION}"')
     with open(HTML_OUTPUT_PATH, "w") as f:
         f.write(html)
@@ -631,7 +725,7 @@ def render_html(store, stations, generated_at, activator_spots, ticker_stations,
             f.write(html)
     for out_dir in OUTPUT_DIRS:
         os.makedirs(out_dir, exist_ok=True)
-        for src in (ICON_PATH, LLAMA_PATH, WAVE_PATH, CSS_PATH):
+        for src in (ICON_PATH, BANNER_PATH, BANNER_DARK_PATH, CSS_PATH):
             dst = os.path.join(out_dir, os.path.basename(src))
             # Same file when OUTPUT_DIR defaults to SCRIPT_DIR (no
             # MUF_OUTPUT_DIR set) - nothing to copy in that case.
@@ -666,15 +760,25 @@ for station, name in stations.items():
     data[name] = (times, fof2, muf, foEs)
     _time.sleep(0.75)  # spread out GIRO/lgdc.uml.edu requests, avoid tripping its rate limiter
 
+# Timestamp of each source's last *successful* fetch, persisted across runs
+# like the station/ticker stores - lets the dashboard show its own "last
+# updated" per source instead of implying everything is as stale as whichever
+# one happens to be having an outage. SSN is deliberately excluded: it's a
+# once-daily reading (see SSN_MAX_AGE below), so tracking it at the same
+# 15min cadence as everything else would make it look permanently "broken."
+meta = store.get("_meta", {})
+
 print("Fetching space weather indices (NOAA SWPC)...")
 indices = store.get("_indices", {"kindex": [], "sfi": []})
 try:
     indices["kindex"] = merge_and_prune(indices.get("kindex", []), fetch_kindex())
-except (urllib.error.URLError, json.JSONDecodeError) as e:
+    meta["kindexFetchedAt"] = now.strftime(ISO_FORM)
+except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
     print(f"Failed to fetch K-index: {e}")
 try:
     indices["sfi"] = merge_and_prune(indices.get("sfi", []), fetch_sfi())
-except (urllib.error.URLError, json.JSONDecodeError) as e:
+    meta["sfiFetchedAt"] = now.strftime(ISO_FORM)
+except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
     print(f"Failed to fetch SFI: {e}")
 # xray/solarWind used to store a single latest-reading dict rather than a
 # history list; discard any leftover dict from that older format instead of
@@ -686,31 +790,36 @@ if not isinstance(indices.get("solarWind"), list):
 
 try:
     indices["xray"] = merge_and_prune(indices.get("xray", []), fetch_xray())
-except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
+    meta["xrayFetchedAt"] = now.strftime(ISO_FORM)
+except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
     print(f"Failed to fetch X-ray flux: {e}")
 try:
     indices["solarWind"] = merge_and_prune(indices.get("solarWind", []), fetch_solar_wind())
-except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
+    meta["solarWindFetchedAt"] = now.strftime(ISO_FORM)
+except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
     print(f"Failed to fetch solar wind speed: {e}")
 try:
     indices["ssn"] = merge_and_prune(indices.get("ssn", []), fetch_ssn(), prune_cutoff=now - SSN_MAX_AGE)
-except (urllib.error.URLError, urllib.error.HTTPError) as e:
+except (urllib.error.URLError, TimeoutError) as e:
     print(f"Failed to fetch sunspot number: {e}")
 store["_indices"] = indices
 
 print("Fetching POTA activator spots (Europe, HF, last 15min)...")
 try:
     pota_spots = fetch_pota_spots()
-except urllib.error.URLError as e:
+    meta["potaFetchedAt"] = now.strftime(ISO_FORM)
+except (urllib.error.URLError, TimeoutError) as e:
     print(f"Failed to fetch POTA spots: {e}")
     pota_spots = []
 
 print("Fetching SOTA activator spots (Europe, HF, last 60min)...")
 try:
     sota_spots = fetch_sota_spots()
-except (urllib.error.URLError, urllib.error.HTTPError) as e:
+    meta["sotaFetchedAt"] = now.strftime(ISO_FORM)
+except (urllib.error.URLError, TimeoutError) as e:
     print(f"Failed to fetch SOTA spots: {e}")
     sota_spots = []
+store["_meta"] = meta
 
 activator_spots = sorted(pota_spots + sota_spots, key=lambda s: s["spotTime"], reverse=True)
 
@@ -719,7 +828,7 @@ for code, name in TICKER_STATIONS.items():
     print(f"Fetching ticker value for {name} ({code})...")
     try:
         latest = fetch_ticker_value(code)
-    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+    except (urllib.error.URLError, TimeoutError) as e:
         print(f"Failed to fetch ticker value for {name}: {e}")
         latest = None
     if latest is not None:
@@ -729,10 +838,50 @@ for code, name in TICKER_STATIONS.items():
     _time.sleep(0.75)  # spread out GIRO/lgdc.uml.edu requests, avoid tripping its rate limiter
 store["_ticker"] = ticker
 
+tle_cache = store.get("_tle", {})
+for sat_name, norad_id in SATELLITES:
+    key = str(norad_id)
+    cached = tle_cache.get(key)
+    needs_fetch = True
+    if cached:
+        try:
+            fetched_at = datetime.strptime(cached["fetchedAt"], ISO_FORM).replace(tzinfo=timezone.utc)
+            needs_fetch = now - fetched_at > TLE_MAX_AGE
+        except (KeyError, ValueError):
+            needs_fetch = True
+    if needs_fetch:
+        print(f"Fetching TLE for {sat_name} ({norad_id})...")
+        try:
+            line1, line2 = fetch_tle(norad_id)
+            tle_cache[key] = {"line1": line1, "line2": line2, "fetchedAt": now.strftime(ISO_FORM)}
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            print(f"Failed to fetch TLE for {sat_name} ({norad_id}): {e}")
+            # keep whatever TLE (if any) is already cached - a few hours'
+            # orbital drift on top of an already-stale TLE barely moves the
+            # pass predictions, so this degrades gracefully rather than
+            # dropping the tile.
+store["_tle"] = tle_cache
+
+sat_passes = store.get("_satPasses", {})
+for sat_name, norad_id in SATELLITES:
+    cached = tle_cache.get(str(norad_id))
+    if not cached:
+        continue
+    print(f"Computing {sat_name} passes over {HOME_LOCATOR or FRANKFURT_LOCATOR}...")
+    try:
+        sat_passes[sat_name] = compute_passes(sat_name, cached["line1"], cached["line2"], HOME_OBSERVER, now)
+    except Exception as e:
+        # Broad catch, deliberately: a malformed/decayed TLE can surface as
+        # several different error types from sgp4/skyfield internals, none
+        # of which should be able to take down the whole run over an
+        # optional tile - keep whatever passes were last computed instead.
+        print(f"Failed to compute passes for {sat_name}: {e}")
+store["_satPasses"] = sat_passes
+
 print("Checking latest GitHub release...")
 try:
     latest_version = fetch_latest_release_version()
-except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
+except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
     print(f"Failed to fetch latest release version: {e}")
     latest_version = None
 if latest_version is not None:

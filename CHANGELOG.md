@@ -2,6 +2,61 @@
 
 All notable changes to MUF Muncher are documented here.
 
+## [2.1.2] - 2026-09-13
+### Fixed
+- The Space Weather / Satellite Passes tile pair fell back to a narrow stacked column instead of sitting side by side once the viewport was wide enough for the station cards to grow past their base width - a wrapping flex container's shrink-to-fit width can collapse to its largest single child instead of the sum of all of them when left as `flex-basis: auto`. Pinned to `flex: 0 0 346px` (168+168+gap) so it reliably reserves the right width regardless of how much room the station cards next to it end up with.
+
+### Changed
+- Updated header banner artwork - a few wordmark letters weren't cleanly transparent. Regenerated the dark-mode variant from the fixed source.
+
+## [2.1.1] - 2026-09-13
+### Fixed
+- The Satellite Passes hero tile was visibly shorter than Space Weather right next to it - 2 rows (ISS/SO-50) vs. Space Weather's 5, sized independently to content. Both now sit in a small nested flex group that stretches them to equal height, without affecting the (taller) station cards elsewhere in the same row.
+
+## [2.1.0] - 2026-09-13
+### Added
+- Satellite Passes glance tile in the hero row, same size as the Space Weather tile: next-pass countdown ("in 47m") and max elevation for ISS and SO-50, color-rated and updating live every second, linking down to the full card.
+- Quick-nav row between the "GIRO Data updated" line and the hero row - plain, minimal jump links to Activator Activity, Ionosonde Detail, Space Weather, and Satellite Passes, for getting to a section without scrolling past the whole page. Smooth scrolling on anchor jumps.
+
+### Changed
+- Satellite Passes rows now use a green/amber/red signal-bar icon (1-3 bars) instead of a plain colored dot - the bar count doubles up with color, so the good/marginal/poor read still works for a colorblind viewer, not just green vs. amber vs. red. Same icon in the card's legend.
+
+## [2.0.0] - 2026-09-13
+Version bump to mark this as a milestone release rather than a plain patch bump: the last two releases (Satellite Passes, the new illustrated header/icon) landed together as a genuinely new era for the page - a new feature category beyond propagation/activator data, and the first visual identity change since the original line-art logo. Nothing about the on-disk format, environment variables, or deployment changed, so there's nothing to migrate.
+
+### Changed
+- README refreshed: new banner at the top (light/dark via a `<picture>` tag, so it renders correctly in GitHub's own dark mode too), regenerated Desktop/Mobile/detail screenshots reflecting the new header and current layout, and a new screenshot for the Satellite Passes card. File-reference mentions of the retired `mufmuncher-llama.png`/`mufmuncher-wave.png` updated to the new banner assets throughout.
+
+## [1.6.1] - 2026-09-13
+### Changed
+- New header identity: the line-art llama + separate wordmark/waveform/tagline are replaced by one illustrated banner (full-color llama, "MUF MUNCHER" wordmark, waveform divider and tagline all in a single image). A second variant with just the baked-in tagline text recolored stands in for dark mode - the wordmark/llama colors already read fine on both themes, but the tagline was a fixed dark gray, and inverting the whole image (the old trick for the pure line-art assets) would have wrecked the llama's own gradient shading. The page's `<h1>` text moves to a visually-hidden but screen-reader/SEO-visible heading, since the image now carries the title visually with an equivalent `alt`.
+- The browser tab/home-screen icon (`mufmuncher-icon.png`) is now the same illustrated llama as the new banner, resized from a 1024px master down to 256px so the favicon fetch stays small (the master alone was ~960KB, far too heavy to serve on every page load).
+
+## [1.6.0] - 2026-09-13
+### Added
+- Satellite Passes card: the next 3 overflights each of the ISS and SO-50, the two most commonly worked easy LEO satellites for portable ops, computed for the configured locator. Shows AOS/max-elevation/LOS as time + azimuth (+ 16-point compass direction) for antenna aiming, and a green/amber/red dot by max elevation (&ge;30&deg; / 15-30&deg; / &lt;15&deg;, shared threshold for both satellites) - a lower pass means more slant range and a much higher chance the real horizon blocks it outright, same rough-guide spirit as the existing MUF(D) open/marginal/closed chips. Elapsed passes drop off the list live (re-evaluated every clock tick, not just on reload).
+- New dependency: `skyfield` (TLE propagation + rise/culminate/set event finding), rather than hand-rolling the ECI-to-topocentric coordinate math on top of raw `sgp4` - a subtle bug in that transform would silently point a real antenna at the wrong patch of sky, so this leans on a maintained, widely-used library instead. TLEs come from Celestrak, refreshed at most every 6h (cached in the store) since orbital drift over a few hours doesn't move pass timing at the minute-level precision shown here; pass prediction itself runs fully offline (Skyfield's bundled leap-second/delta-T data, no extra network call beyond the TLE fetch).
+
+## [1.5.2] - 2026-09-13
+### Fixed
+- The "GIRO Data updated" freshness dot could show green/"just now" while the hero stations had zero data at all: it computed the last real reading only from the two hero stations' records, and once the ongoing GIRO outage passed the 24h retention window, `merge_and_prune` legitimately pruned their entire history to nothing (`stationTimes.length === 0`), which fell back to `generatedAt` (render time, i.e. "now") - the exact "just re-rendered on schedule, but the underlying data is stale" bug v1.4.4 already fixed for the case where records still existed. Now also considers the ticker's 8 other GIRO stations (never pruned by age), so the real last-known reading from ~26h ago surfaces correctly as critically stale instead of the fallback pretending it's fresh; falls back to an explicit "no data received yet" (not "just now") only if literally no GIRO station - hero or ticker - has ever returned a reading.
+
+## [1.5.1] - 2026-09-13
+### Changed
+- v1.5.0's freshness indicators were live for about an hour before feedback made clear they needed more visual weight: the page-wide "Data updated" stat is now explicitly "GIRO Data updated" (it was always GIRO-derived, but the generic label didn't say so), and POTA/SOTA's freshness moved out of the Activator Activity footer's small print into its own prominent "POTA/SOTA Data updated" line, in the same dot+bold-text style as the GIRO one, directly above the list.
+- Space Weather gets the same treatment for consistency: a new "Space Weather Data updated" line above its indices, tracking the four NOAA feeds behind it (kindex, SFI, X-ray, solar wind - SSN stays excluded, see v1.5.0). When sources disagree (e.g. X-ray failing while the others are fine), it shows whichever is furthest behind relative to its own cadence, same logic as the POTA/SOTA line.
+
+## [1.5.0] - 2026-09-13
+### Added
+- Follow-up to yesterday's GIRO outage, prompted by feedback while it was still ongoing: the "Data updated" timestamp now shows the date too once the last reading isn't from today - a bare "08:40:00" is ambiguous once an outage runs past midnight UTC (which this one did), and a viewer glancing at it would reasonably assume it meant today.
+- Freshness color/wording now scales to each source's own update cadence instead of one fixed pair of thresholds (GIRO/POTA ~15min, SOTA ~60min), and calls out "likely a data issue upstream"/"likely stale" in text once a source misses ~2 cycles - not just a color change, since that's easy to skim past on a quick glance.
+- POTA and SOTA get their own independent "last updated" in the Activator Activity footer, tracked from each source's last *successful* fetch (persisted across runs, like the station/ticker stores). Previously the only freshness signal on the whole page was GIRO-derived, so a GIRO-only outage made the (perfectly fine) activator list look stale too, and there was no way to tell if POTA/SOTA themselves were having their own issue.
+
+## [1.4.4] - 2026-09-12
+### Fixed
+- The header's "Data updated ... (Xm ago)" freshness dot was computed from when `muf.py` last *ran*, not from the hero stations' actual last successful reading - so a fetch failure that still lets the cron re-render on schedule (exactly what happened live today: GIRO's backend returned `504 Gateway Timeout` for all 10 stations, for hours) kept showing a green dot and "just now" over data that was actually many hours stale. Now derived from the latest real record timestamp across the hero stations instead, falling back to the render time only if a station genuinely has no records yet (fresh install).
+- No outbound request had an explicit timeout, so a source that accepts a connection but never responds - rather than erroring outright - blocked that fetch indefinitely; today's GIRO outage stretched a normal ~15s run to 3+ minutes across all 10 stations. All fetches now time out after 15s. That surfaced a second, pre-existing gap: a bare read timeout raises `TimeoutError`, not `urllib.error.URLError` - 9 of the 10 fetch call sites only caught the latter (only the hero-station fetch had a catch-all), so a timeout there would have crashed the whole run instead of being skipped gracefully like every other fetch failure. Both fixed together.
+
 ## [1.4.3] - 2026-08-15
 ### Fixed
 - `docker-compose.yml` set `MUF_HOME_LOCATOR` as a literal hardcoded empty value (`- MUF_HOME_LOCATOR=`) instead of `${VAR}` interpolation, reported in [issue #1](https://github.com/mooxle/Muf_Muncher/issues/1) (the project's first). The container always received an empty string no matter what was set outside the compose file - a `.env` file, `docker compose --env-file`, or a stack manager's (Portainer, Dockge, ...) environment panel all had no effect, with no error or warning that the value was being ignored. Now `${MUF_HOME_LOCATOR:-}`, so those actually work; the `:-` default keeps it silently empty (Frankfurt am Main fallback) rather than a Compose "variable not set" warning when nobody sets it.

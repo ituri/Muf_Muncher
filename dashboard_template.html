@@ -31,12 +31,9 @@
   <div class="hdr">
     <div class="hdr-title">
       <div class="hdr-halo" aria-hidden="true"></div>
-      <img class="hdr-llama" src="mufmuncher-llama.png" alt="" aria-hidden="true">
-      <div>
-        <h1>MUF Muncher</h1>
-        <img class="hdr-wave" src="mufmuncher-wave.png" alt="" aria-hidden="true">
-        <div class="tagline" id="tagline">Is HF worth it right now &mdash; and where?</div>
-      </div>
+      <h1 class="sr-only">MUF Muncher &mdash; Is HF worth it right now &mdash; and where?</h1>
+      <img class="hdr-banner hdr-banner-light" src="mufmuncher-banner.png" alt="MUF Muncher &mdash; Is HF worth it right now, and where?">
+      <img class="hdr-banner hdr-banner-dark" src="mufmuncher-banner-dark.png" alt="MUF Muncher &mdash; Is HF worth it right now, and where?">
     </div>
     <div class="hdr-right">
       <div class="live-clock">
@@ -59,8 +56,18 @@
     </div>
   </div>
   <div class="stat-strip">
-    <span class="stat-item data-updated"><span class="dot" id="dataDot"></span>Data updated <span id="dataUpdated">--:--:--</span> UTC (<span id="dataAge">-</span>)<button id="reloadBtn" class="reload-btn" type="button" aria-label="Reload dashboard" title="Reload dashboard"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M16 4v4h-4M4 16v-4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.6 11a5.6 5.6 0 0 1 9.5-3.6M15.4 9a5.6 5.6 0 0 1-9.5 3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></span>
+    <span class="stat-item data-updated"><span class="dot" id="dataDot"></span>GIRO Data updated <span id="dataUpdated">--:--:--</span> UTC (<span id="dataAge">-</span>)<button id="reloadBtn" class="reload-btn" type="button" aria-label="Reload dashboard" title="Reload dashboard"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M16 4v4h-4M4 16v-4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.6 11a5.6 5.6 0 0 1 9.5-3.6M15.4 9a5.6 5.6 0 0 1-9.5 3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></span>
   </div>
+
+  <nav class="quick-nav" aria-label="Jump to section">
+    <a href="#activator-activity">Activator Activity</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="#ionosonde-detail">Ionosonde Detail</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="#space-weather">Space Weather</a>
+    <span aria-hidden="true">&middot;</span>
+    <a href="#satellites">Satellite Passes</a>
+  </nav>
 
   <!-- The answer to "is HF worth it right now": MUF(D) + band chips, per station -->
   <div class="hero-row" id="heroRow"></div>
@@ -89,7 +96,7 @@
     <div class="map-cta-sub">live worldwide propagation &middot; prop.kc2g.com</div>
   </a>
 
-  <div class="section-title">
+  <div class="section-title" id="activator-activity">
     <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
       <path d="M2 16.5 L8 5.5 L11 10.5 L14 4.5 L18.5 16.5 Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>
       <path d="M4.6 9.8 L6.6 13.2 H5.7 L7 15.7 H2.2 L3.5 13.2 H2.6 Z" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
@@ -100,10 +107,11 @@
     <div class="chead">
       <h2>Live POTA &amp; SOTA Activators &mdash; Europe, HF</h2>
     </div>
+    <div class="card-freshness"><span class="dot" id="activatorDot"></span>POTA/SOTA Data updated <span id="activatorUpdated">--:--:--</span> UTC (<span id="activatorAge">-</span>)</div>
     <div class="pota-filters" id="potaFilters"></div>
     <div id="potaList"></div>
     <button class="pota-showmore" id="potaShowMoreBtn" type="button"></button>
-    <div class="disclaimer">Source: pota.app (last 15 min) &middot; api-db2.sota.org.uk (last 60 min) &middot; refreshed each dashboard cycle &middot; band colors cross-reference the Band Opening estimate above.</div>
+    <div class="disclaimer" id="activatorDisclaimer">Source: pota.app (last 15 min) &middot; api-db2.sota.org.uk (last 60 min) &middot; refreshed each dashboard cycle &middot; band colors cross-reference the Band Opening estimate above.</div>
   </div>
 
   <div class="section-title" id="ionosonde-detail">
@@ -119,12 +127,29 @@
   </div>
   <div class="chart-card">
     <div class="chead"><h2>Solar Flux, Geomagnetic &amp; Radio Blackout Indices</h2></div>
+    <div class="card-freshness"><span class="dot" id="swDot"></span>Space Weather Data updated <span id="swUpdated">--:--:--</span> UTC (<span id="swAge">-</span>)</div>
     <div class="kpi-row" id="swKpiRow"></div>
     <div class="disclaimer">SFI &amp; Kp: NOAA SWPC (services.swpc.noaa.gov), global (not station-specific). X-ray flux: NOAA SWPC / GOES primary X-ray sensor. Solar wind speed: NOAA SWPC / ACE SWEPAM. Sunspot number: NOAA/SESC daily solar data, once per day &mdash; kept for 30 days (everything else on this page: 24h).</div>
   </div>
 
+  <div class="section-title" id="satellites">
+    <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><rect x="8.3" y="8.3" width="3.4" height="3.4" transform="rotate(45 10 10)" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="12.4" y1="7.6" x2="16" y2="4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="7.6" y1="12.4" x2="4" y2="16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M13.5 3 L17 6.5 M3 13.5 L6.5 17" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    Satellite Passes
+  </div>
+  <div class="chart-card">
+    <div class="chead"><h2>Next ISS &amp; SO-50 Overflights</h2></div>
+    <div id="satPassList"></div>
+    <div class="band-legend-shared">
+      <span class="item"><svg class="sat-tier-icon" viewBox="0 0 14 11" width="14" height="11" aria-hidden="true"><rect x="0" y="6" width="3.5" height="5" rx="1" fill="var(--good)" stroke="var(--good)" stroke-width="1"/><rect x="5" y="3" width="3.5" height="8" rx="1" fill="var(--good)" stroke="var(--good)" stroke-width="1"/><rect x="10" y="0" width="3.5" height="11" rx="1" fill="var(--good)" stroke="var(--good)" stroke-width="1"/></svg>&ge;30&deg; max el.</span>
+      <span class="item"><svg class="sat-tier-icon" viewBox="0 0 14 11" width="14" height="11" aria-hidden="true"><rect x="0" y="6" width="3.5" height="5" rx="1" fill="var(--warning)" stroke="var(--warning)" stroke-width="1"/><rect x="5" y="3" width="3.5" height="8" rx="1" fill="var(--warning)" stroke="var(--warning)" stroke-width="1"/><rect x="10" y="0" width="3.5" height="11" rx="1" fill="none" stroke="var(--border)" stroke-width="1"/></svg>15-30&deg;</span>
+      <span class="item"><svg class="sat-tier-icon" viewBox="0 0 14 11" width="14" height="11" aria-hidden="true"><rect x="0" y="6" width="3.5" height="5" rx="1" fill="var(--critical)" stroke="var(--critical)" stroke-width="1"/><rect x="5" y="3" width="3.5" height="8" rx="1" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="10" y="0" width="3.5" height="11" rx="1" fill="none" stroke="var(--border)" stroke-width="1"/></svg>&lt;15&deg;</span>
+      <span>&mdash; rough guide by max elevation only, real horizon obstructions vary by site</span>
+    </div>
+    <div class="disclaimer">TLE: celestrak.org &middot; times UTC &middot; azimuth in degrees from true north &middot; elapsed passes drop off this list automatically, new ones appear on the next dashboard reload.</div>
+  </div>
+
   <div class="foot">
-    <span>Source: Lowell GIRO Data Center &middot; DIDBase (CC-BY-NC-SA 4.0) &middot; giro.uml.edu &middot; NOAA SWPC &middot; pota.app &middot; sota.org.uk</span>
+    <span>Source: Lowell GIRO Data Center &middot; DIDBase (CC-BY-NC-SA 4.0) &middot; giro.uml.edu &middot; NOAA SWPC &middot; pota.app &middot; sota.org.uk &middot; celestrak.org</span>
     <span id="updatedFoot"></span>
   </div>
   <div class="credit">
@@ -347,14 +372,205 @@ const dataUpdatedEl = document.getElementById('dataUpdated');
 const dataAgeEl = document.getElementById('dataAge');
 const dataDotEl = document.getElementById('dataDot');
 const generatedAtMs = new Date(DATA.generatedAt).getTime();
+// The actual last-updated signal is GIRO's latest real reading (hero
+// stations' full history plus the ticker's single-value stations), not when
+// muf.py last ran - a fetch failure (e.g. GIRO returning 504 for every
+// station, seen live 2026-09-12) still lets the cron re-render on schedule
+// with only stale numbers underneath, which used generatedAt alone to show
+// a green dot and "just now" throughout. Ticker values are included because
+// hero-station history gets pruned to nothing once an outage outlasts the
+// 24h retention window (seen live 2026-09-13, ~26h into the same outage) -
+// without it, zero hero records read as "no signal" and fell back to
+// generatedAt again, the exact bug this was meant to fix. null (not
+// generatedAt) when there's truly no reading anywhere yet, e.g. a fresh
+// install before the first successful fetch.
+const stationTimes = stations.flatMap(s => s.records.map(r => new Date(r.time).getTime()))
+  .concat(tickerStations.map(s => new Date(s.time).getTime()));
+const latestDataMs = stationTimes.length ? Math.max(...stationTimes) : null;
 
-// How stale is the data actually showing? Green under 20min (normal cron gap),
-// amber up to an hour (cron running late), red beyond that (cron likely broken).
+// How stale is a source's data, relative to its own update cadence rather
+// than one fixed number - GIRO/POTA refresh every ~15min, SOTA only every
+// ~60min, so "30min old" is a missed cycle for one and unremarkable for the
+// other. "Broken" (~2 missed cycles) gets called out in text too, not just
+// color, since color alone is easy to skim past on a quick glance.
+function freshnessInfo(lastMs, cadenceMin) {
+  if (lastMs == null) return { noData: true, color: 'var(--critical)', isBroken: true };
+  const ageMin = Math.round((Date.now() - lastMs) / 60000);
+  const warnAt = cadenceMin * 1.34;
+  const brokenAt = cadenceMin * 2;
+  const color = ageMin >= brokenAt ? 'var(--critical)' : ageMin >= warnAt ? 'var(--warning)' : 'var(--good)';
+  return { ageMin, color, isBroken: ageMin >= brokenAt };
+}
+
+function formatAge(ageMin) {
+  return ageMin <= 0 ? 'just now' : ageMin === 1 ? '1m ago' : `${ageMin}m ago`;
+}
+
+// A bare time ("08:40:00") is ambiguous once the data is old enough to be
+// from a different day than "now" - GIRO's 2026-09-12 outage ran well past
+// midnight UTC, and a viewer glancing at just the time would reasonably
+// assume it meant today. Only add the date once it's actually needed.
+function formatUpdatedTime(ms) {
+  const d = new Date(ms);
+  const isoDate = d.toISOString().slice(0, 10);
+  const timePart = d.toISOString().substr(11, 8);
+  const sameUTCDay = isoDate === new Date().toISOString().slice(0, 10);
+  return sameUTCDay ? timePart : `${isoDate} ${timePart}`;
+}
+
+// Renders one "<label> Data updated ..." stat line given a last-success
+// timestamp and that source's own update cadence.
+function renderFreshnessLine(dotEl, updatedEl, ageEl, ms, cadenceMin) {
+  const { ageMin, color, isBroken, noData } = freshnessInfo(ms, cadenceMin);
+  updatedEl.textContent = noData ? '—' : formatUpdatedTime(ms);
+  ageEl.textContent = noData ? 'no data received yet' : formatAge(ageMin) + (isBroken ? ' — likely a data issue upstream' : '');
+  dotEl.style.background = color;
+}
+
+// Some stat lines represent more than one independent source (POTA+SOTA,
+// or the four NOAA feeds behind Space Weather). Each has its own cadence,
+// so comparing raw ages would always make the slowest-cadence source look
+// the most "overdue" even when perfectly healthy - comparing age relative
+// to cadence picks whichever source is actually the most behind on its own
+// schedule. In the normal case all given sources update on the same cron
+// cycle and are identical, so this only matters once one of them fails.
+function worstSource(candidates) {
+  const known = candidates.filter((c) => c.ms != null);
+  if (!known.length) return null;
+  const ratio = (c) => (Date.now() - c.ms) / c.cadenceMin;
+  return known.reduce((worst, c) => (ratio(c) > ratio(worst) ? c : worst));
+}
+
 function updateDataFreshness() {
-  dataUpdatedEl.textContent = new Date(generatedAtMs).toISOString().substr(11, 8);
-  const ageMin = Math.round((Date.now() - generatedAtMs) / 60000);
-  dataAgeEl.textContent = ageMin <= 0 ? 'just now' : ageMin === 1 ? '1m ago' : `${ageMin}m ago`;
-  dataDotEl.style.background = ageMin > 60 ? 'var(--critical)' : ageMin > 20 ? 'var(--warning)' : 'var(--good)';
+  renderFreshnessLine(dataDotEl, dataUpdatedEl, dataAgeEl, latestDataMs, 15);
+}
+
+// POTA and SOTA are independent sources with their own fetch success/failure
+// - showing their own "last updated" here (rather than only the GIRO-derived
+// stat above) means a POTA/SOTA-side hiccup is visible on its own, and a
+// GIRO-side one (like 2026-09-12) doesn't make this list look stale too when
+// it isn't.
+const activatorDotEl = document.getElementById('activatorDot');
+const activatorUpdatedEl = document.getElementById('activatorUpdated');
+const activatorAgeEl = document.getElementById('activatorAge');
+const potaFetchedAtMs = DATA.potaFetchedAt ? new Date(DATA.potaFetchedAt).getTime() : null;
+const sotaFetchedAtMs = DATA.sotaFetchedAt ? new Date(DATA.sotaFetchedAt).getTime() : null;
+
+function updateActivatorFreshness() {
+  const worst = worstSource([
+    { ms: potaFetchedAtMs, cadenceMin: 15 },
+    { ms: sotaFetchedAtMs, cadenceMin: 60 },
+  ]);
+  if (!worst) return;
+  renderFreshnessLine(activatorDotEl, activatorUpdatedEl, activatorAgeEl, worst.ms, worst.cadenceMin);
+}
+
+// Same idea for the four NOAA feeds behind Space Weather (SSN excluded - see
+// muf.py, it's a once-daily reading and would always look "broken" here).
+const swDotEl = document.getElementById('swDot');
+const swUpdatedEl = document.getElementById('swUpdated');
+const swAgeEl = document.getElementById('swAge');
+const kindexFetchedAtMs = DATA.kindexFetchedAt ? new Date(DATA.kindexFetchedAt).getTime() : null;
+const sfiFetchedAtMs = DATA.sfiFetchedAt ? new Date(DATA.sfiFetchedAt).getTime() : null;
+const xrayFetchedAtMs = DATA.xrayFetchedAt ? new Date(DATA.xrayFetchedAt).getTime() : null;
+const solarWindFetchedAtMs = DATA.solarWindFetchedAt ? new Date(DATA.solarWindFetchedAt).getTime() : null;
+
+function updateSwFreshness() {
+  const worst = worstSource([
+    { ms: kindexFetchedAtMs, cadenceMin: 15 },
+    { ms: sfiFetchedAtMs, cadenceMin: 15 },
+    { ms: xrayFetchedAtMs, cadenceMin: 15 },
+    { ms: solarWindFetchedAtMs, cadenceMin: 15 },
+  ]);
+  if (!worst) return;
+  renderFreshnessLine(swDotEl, swUpdatedEl, swAgeEl, worst.ms, worst.cadenceMin);
+}
+
+// Satellite pass data/elements set up here (ahead of updateClock's first
+// synchronous call below) rather than down by the rest of the satellite
+// rendering code near the bottom of the file - updateClock calls
+// renderSatellitePasses() every tick starting immediately, and these are
+// `const`s, so referencing them before this point would throw.
+const SAT_LIST = [
+  { key: 'ISS', label: 'ISS' },
+  { key: 'SO-50', label: 'SO-50' },
+];
+const satPassListEl = document.getElementById('satPassList');
+const satellitePasses = DATA.satellitePasses || {};
+const COMPASS_POINTS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+function azToCompass(deg) {
+  return COMPASS_POINTS[Math.round(deg / 22.5) % 16];
+}
+
+// Same three-tier idea as the MUF(D) band chips above, but by max elevation:
+// a lower pass means more atmosphere/slant range (weaker signal) and a much
+// higher chance the real horizon (buildings, trees) blocks it outright,
+// regardless of what's geometrically visible from a flat-earth model.
+function satElevationTier(elDeg) {
+  if (elDeg >= 30) return { tier: 'good', bars: 3 };
+  if (elDeg >= 15) return { tier: 'warning', bars: 2 };
+  return { tier: 'critical', bars: 1 };
+}
+
+// Signal-strength bars rather than a plain dot: the bar count doubles up
+// with color so the good/marginal/poor read is still there for a
+// colorblind reader, not just green/amber/red. ratingColor() is the same
+// good/warning/critical palette the Space Weather tiles use below - defined
+// later in this file, but hoisted, so it's already callable here.
+function satTierIcon(elDeg) {
+  const { tier, bars } = satElevationTier(elDeg);
+  const color = ratingColor(tier).bg;
+  const heights = [5, 8, 11];
+  const rects = heights.map((h, i) => {
+    const x = i * 5;
+    const y = 11 - h;
+    const on = i < bars;
+    return `<rect x="${x}" y="${y}" width="3.5" height="${h}" rx="1" fill="${on ? color : 'none'}" stroke="${on ? color : 'var(--border)'}" stroke-width="1"/>`;
+  }).join('');
+  return `<svg class="sat-tier-icon" viewBox="0 0 14 11" width="14" height="11" aria-hidden="true">${rects}</svg>`;
+}
+
+// Hero-row glance tile, same size/shape as the Space Weather one - built and
+// its live-updating pieces wired up here (ahead of updateClock's first call
+// below, same TDZ reasoning as the SAT_LIST block above), but not inserted
+// into heroRow until the other hero tiles are, further down, so it lands in
+// the right visual order (after the two station cards and Space Weather).
+const satGlanceTile = document.createElement('a');
+satGlanceTile.className = 'hero-sw-tile';
+satGlanceTile.href = '#satellites';
+satGlanceTile.innerHTML = `
+  <div class="sw-title">
+    <svg viewBox="0 0 20 20" width="12" height="12" aria-hidden="true"><rect x="8.3" y="8.3" width="3.4" height="3.4" transform="rotate(45 10 10)" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="12.4" y1="7.6" x2="16" y2="4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="7.6" y1="12.4" x2="4" y2="16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M13.5 3 L17 6.5 M3 13.5 L6.5 17" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    Satellite Passes
+  </div>
+  <div class="sw-row"><span class="k">ISS</span><span id="satGlanceISS"></span></div>
+  <div class="sw-row"><span class="k">SO-50</span><span id="satGlanceSO50"></span></div>
+`;
+const satGlanceISSEl = satGlanceTile.querySelector('#satGlanceISS');
+const satGlanceSO50El = satGlanceTile.querySelector('#satGlanceSO50');
+
+function nextPassFor(key) {
+  const nowMs = Date.now();
+  return (satellitePasses[key] || []).find(p => new Date(p.los).getTime() > nowMs) || null;
+}
+
+function passCountdownText(pass) {
+  const nowMs = Date.now();
+  const aosMs = new Date(pass.aos).getTime();
+  const losMs = new Date(pass.los).getTime();
+  if (nowMs >= aosMs && nowMs <= losMs) return 'NOW';
+  const minutes = Math.max(0, Math.round((aosMs - nowMs) / 60000));
+  if (minutes < 60) return `in ${minutes}m`;
+  return `in ${Math.floor(minutes / 60)}h${minutes % 60 ? ' ' + (minutes % 60) + 'm' : ''}`;
+}
+
+function updateSatGlanceTile() {
+  for (const [key, el] of [['ISS', satGlanceISSEl], ['SO-50', satGlanceSO50El]]) {
+    const pass = nextPassFor(key);
+    if (!pass) { el.innerHTML = swBadge('&ndash;', null); continue; }
+    const maxElRounded = Math.round(pass.maxEl);
+    el.innerHTML = swBadge(passCountdownText(pass), satElevationTier(maxElRounded).tier, maxElRounded + '&deg;');
+  }
 }
 
 // A blinking colon signals "this is live" without extra text; built as HTML
@@ -390,6 +606,10 @@ function updateClock() {
   localTzEl.textContent = offsetHours >= 2 ? 'CEST' : 'CET';
 
   updateDataFreshness();
+  updateActivatorFreshness();
+  updateSwFreshness();
+  renderSatellitePasses();
+  updateSatGlanceTile();
 }
 updateClock();
 setInterval(updateClock, 1000);
@@ -858,7 +1078,14 @@ swTile.innerHTML = `
   <div class="sw-row"><span class="k">Wind</span>${swBadge(windNum != null ? Math.round(windNum) + ' km/s' : '–', windTier(windNum))}</div>
   <div class="sw-row"><span class="k">SSN</span>${swBadge(ssnNum != null ? String(ssnNum) : '–', ssnTier(ssnNum))}</div>
 `;
-heroRow.appendChild(swTile);
+// Grouped and stretched to equal height together, independent of the two
+// station cards next to them - Satellite Passes only has 2 rows to Space
+// Weather's 5, and would otherwise look visibly shorter in the same row.
+const glanceGroup = document.createElement('div');
+glanceGroup.className = 'hero-glance-group';
+glanceGroup.appendChild(swTile);
+glanceGroup.appendChild(satGlanceTile);
+heroRow.appendChild(glanceGroup);
 
 // ---------------------------------------------------------------- POTA activity
 // Cross-references each spot's band against our own MUF-derived band status
@@ -1117,6 +1344,47 @@ function kpColor(kp) {
   if (kp >= 4) return 'var(--warning)';
   return 'var(--good)';
 }
+
+// ---------------------------------------------------------------- Satellite passes
+function buildSatRow(pass) {
+  const row = document.createElement('div');
+  row.className = 'sat-row';
+  // Round once and reuse - classifying the unrounded value but displaying
+  // the rounded one could show e.g. a red dot next to a displayed "15°",
+  // which reads as a contradiction against the legend's own 15° cutoff.
+  const maxElRounded = Math.round(pass.maxEl);
+  row.innerHTML = `
+    ${satTierIcon(maxElRounded)}
+    <span class="sat-time">AOS <b>${formatUpdatedTime(new Date(pass.aos).getTime())}</b> <span class="sat-az">${Math.round(pass.aosAz)}&deg; ${azToCompass(pass.aosAz)}</span></span>
+    <span class="sat-arrow">&rarr;</span>
+    <span class="sat-time">MAX <b>${maxElRounded}&deg;</b> <span class="sat-az">${Math.round(pass.maxElAz)}&deg; ${azToCompass(pass.maxElAz)}</span></span>
+    <span class="sat-arrow">&rarr;</span>
+    <span class="sat-time">LOS <b>${formatUpdatedTime(new Date(pass.los).getTime())}</b> <span class="sat-az">${Math.round(pass.losAz)}&deg; ${azToCompass(pass.losAz)}</span></span>
+    <span class="sat-dur">${pass.durationMin}m</span>
+  `;
+  return row;
+}
+
+// Re-run on every clock tick (like the freshness lines above) rather than
+// once at load: a pass whose LOS has already ticked past "now" is over, and
+// should disappear on its own without waiting for the next dashboard
+// reload/cron cycle to re-fetch a payload that no longer lists it.
+function renderSatellitePasses() {
+  const nowMs = Date.now();
+  satPassListEl.innerHTML = '';
+  for (const { key, label } of SAT_LIST) {
+    const upcoming = (satellitePasses[key] || []).filter(p => new Date(p.los).getTime() > nowMs);
+    const group = document.createElement('div');
+    group.className = 'sat-group';
+    const label_ = `<div class="sat-group-label">${label}</div>`;
+    group.innerHTML = upcoming.length
+      ? label_
+      : `${label_}<div class="pota-empty">No upcoming pass data - refreshes on the next dashboard cycle.</div>`;
+    for (const p of upcoming) group.appendChild(buildSatRow(p));
+    satPassListEl.appendChild(group);
+  }
+}
+renderSatellitePasses();
 })();
 </script>
 </body>
